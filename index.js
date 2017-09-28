@@ -109,8 +109,8 @@ var download = (options, callback) => {
             console.log(filename + ' exists, verifying file size: (' + fileOffset + ' / ' + serverFileSize + " downloaded)");
 
             // Check if size on disk is lower than server
-            if (fileOffset < serverFileSize) {
-                console.log('File needs re-downloaded as it was not completed');
+            if (fileOffset !== serverFileSize || stats.mtime < response.headers["last-modified"]) {
+                console.log('File needs to be re-downloaded as it was not complete or it was not the same.', fileOffset+" !== "+serverFileSize, stats.mtime+" !== "+response.headers["last-modified"]);
 
                 options = {
                     path: filePath,
