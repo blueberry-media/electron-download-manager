@@ -109,8 +109,8 @@ var download = (options, callback) => {
             console.log(filename + ' exists, verifying file size: (' + fileOffset + ' / ' + serverFileSize + " downloaded)");
 
             // Check if size on disk is lower than server
-            if (fileOffset !== serverFileSize || stats.mtime < response.headers["last-modified"]) {
-                console.log('File needs to be re-downloaded as it was not complete or it was not the same.', fileOffset+" !== "+serverFileSize, stats.mtime+" !== "+response.headers["last-modified"]);
+            if (fileOffset < serverFileSize) {
+                console.log('File needs re-downloaded as it was not completed');
 
                 options = {
                     path: filePath,
@@ -174,6 +174,61 @@ var bulkDownload = (options, callback) => {
     });
 }
 
+var syncDownload = (options, callback) => {
+    let win = BrowserWindow.getFocusedWindow() || lastWindowCreated;
+    options = Object.assign({}, {
+        path: ""
+    }, options);
+
+    request(options.url).on("response", function(response) {
+        response.request.abort();
+
+        queue.push({
+            url: response.request.uri.href,
+            path: options.path.toString(),
+            callback: callback,
+            onProgress: options.onProgress
+        });
+
+        const filename = path.basename(response.request.uri.href);
+
+        const filePath = path.join(path.join(downloadFolder, options.path.toString()), filename);
+        let needsDownload = false;
+
+        if ( ! options.forceDownload && fs.existsSync(filePath)) {
+            const stats = fs.statSync(filePath);
+
+            const fileOffset = stats.size;
+
+            const serverFileSize = parseInt(response.headers["content-length"]);
+
+            console.log(filename + ' exists, verifying file size: (' + fileOffset + ' / ' + serverFileSize + " )");
+
+            // Check if size on disk is not equal to server or file on server is newer then on device.
+            if (fileOffset !== serverFileSize || stats.mtime < response.headers["last-modified"] ) {
+                console.log('File needs to be re-downloaded as it was not the same size or newer on the server.', fileOffset+" !== "+serverFileSize, stats.mtime+" !== "+response.headers["last-modified"]);
+                needsDownload = true;
+            }
+
+        } else {
+            console.log(filename + ' does not exist, needs download.');
+            needsDownload = true
+        }
+
+        if(needsDownload){
+            console.log(filename + ' needs download, download it now.');
+            win.webContents.downloadURL(options.url);
+        }else{
+            console.log(filename + ', no download needed');
+            
+            let finishedDownloadCallback = callback || function() {};
+            
+            finishedDownloadCallback(null, { url: response.request.uri.href, filePath });
+        }
+    })
+
+}
+
 var _popQueueItem = (url) => {
     let queueItem = queue.find(item => item.url === url);
     queue.splice(queue.indexOf(queueItem), 1);
@@ -183,5 +238,6 @@ var _popQueueItem = (url) => {
 module.exports = {
     register,
     download,
-    bulkDownload
+    bulkDownload,
+    syncDownload
 }
