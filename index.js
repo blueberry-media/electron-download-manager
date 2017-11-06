@@ -180,8 +180,15 @@ var syncDownload = (options, callback) => {
         path: ""
     }, options);
 
-    request(options.url).on("response", function(response) {
-        response.request.abort();
+    request.head(options.url,
+    {
+        forever:false,
+        gzip:true,
+        headers: {
+        'User-Agent': 'offlineviewer'
+        }
+    }).on("response", function(response) {
+        //response.request.abort();
 
         queue.push({
             url: response.request.uri.href,
@@ -220,12 +227,12 @@ var syncDownload = (options, callback) => {
             win.webContents.downloadURL(options.url);
         }else{
             console.log(filename + ', no download needed');
-            
+
             let finishedDownloadCallback = callback || function() {};
-            
+
             finishedDownloadCallback(null, { url: response.request.uri.href, filePath });
         }
-    })
+    }).on('error', function(e){ console.log('error during request --> event:', e); })
 
 }
 
