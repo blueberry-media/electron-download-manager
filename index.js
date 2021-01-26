@@ -187,7 +187,18 @@ var syncDownload = (options, callback) => {
         headers: {
         'User-Agent': 'offlineviewer'
         }
-    }).on("response", function(response) {
+    })
+    request.on('error', function (error) {
+        let finishedDownloadCallback = callback || function () { };
+
+        console.log('error during request --> event:', error);
+
+        const message = `The request for ${filename} was interrupted: ${error}`;
+
+        finishedDownloadCallback(new Error(message), { url: options.url, filePath: filePath });
+    });
+
+    request.on("response", function(response) {
         //response.request.abort();
 
         queue.push({
@@ -232,7 +243,7 @@ var syncDownload = (options, callback) => {
 
             finishedDownloadCallback(null, { url: response.request.uri.href, filePath });
         }
-    }).on('error', function(e){ console.log('error during request --> event:', e); })
+    })
 
 }
 
